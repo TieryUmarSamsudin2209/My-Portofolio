@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=Orbitron:wght@400..900&display=swap');
 @import "tailwindcss";
 
 :root {
@@ -14,7 +15,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background: #000000;
     --foreground: #ededed;
   }
 }
@@ -22,5 +23,53 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Orbitron", sans-serif;
+}
+
+*{
+  box-sizing: border-box;
+}
+
+.glitch {
+  position: relative;
+}
+
+.glitch::before,
+.glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  opacity: 0;
+}
+
+.glitch-active::before {
+  opacity: 0.7;
+  color: #00ffff;
+  animation: glitchTop 0.4s infinite linear alternate-reverse;
+}
+
+.glitch-active::after {
+  opacity: 0.7;
+  color: #ff00ff;
+  animation: glitchBottom 0.4s infinite linear alternate-reverse;
+}
+
+@keyframes glitchTop {
+  0% {
+    transform: translate(1px, -1px);
+  }
+  100% {
+    transform: translate(-1px, 1px);
+  }
+}
+
+@keyframes glitchBottom {
+  0% {
+    transform: translate(-1px, 1px);
+  }
+  100% {
+    transform: translate(1px, -1px);
+  }
 }
