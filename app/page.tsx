@@ -1,8 +1,8 @@
 'use client'
 
-import { motion, useScroll, useTransform } from "framer-motion"
+import { motion, useScroll, useTransform, useMotionValueEvent } from "framer-motion"
 import Image from "next/image";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {FileUser, Instagram, Github, Linkedin, MapPinHouse, School} from "lucide-react"
 import emailjs from "@emailjs/browser";
 
@@ -30,37 +30,121 @@ function SkillBar({ icon, name, percent }: SkillBarProps) {
             whileInView={{ width: `${percent}%` }}
             transition={{ duration: 1.2, ease: "easeOut" }}
             viewport={{ once: true }}
-          />
+            />
         </div>
       </div>
     </div>
   )
 }
 
+const sectionVariant = {
+  hidden: { opacity: 0, y: 60 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.9, ease: "easeOut" }
+  }
+}
+
+
 export default function Home() {
+  const {scrollY} = useScroll()
+  const [activeSection, setActiveSection] = useState("home")
+  const [isSending, setIsSending] = useState(false)
+
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    const sections = ["home", "about-me", "projects", "techstack", "contact"]
+
+    for (const id of sections) {
+      const el = document.getElementById(id)
+      if (!el) continue
+
+      const rect = el.getBoundingClientRect()
+      if (rect.top <= 120 && rect.bottom >= 120) {
+        setActiveSection(id)
+        break
+      }
+    }
+  })
+
   const sendEmail = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsSending(true);
 
-    emailjs
-      .sendForm(
-        "YOUR_SERVICE_ID",
-        "YOUR_TEMPLATE_ID",
-        e.currentTarget,
-        "YOUR_PUBLIC_KEY"
-      )
+    console.log("Form submitted!");
+    console.log("Form data:", {
+      email: (e.currentTarget.elements.namedItem('email') as HTMLInputElement)?.value || '',
+      name: (e.currentTarget.elements.namedItem('name') as HTMLInputElement)?.value || '',
+      company: (e.currentTarget.elements.namedItem('company') as HTMLInputElement)?.value || '',
+      message: (e.currentTarget.elements.namedItem('message') as HTMLTextAreaElement)?.value || ''
+    });
+
+    // EmailJS Configuration
+    const serviceId = "service_f92hnqq";
+    const templateId = "template_w5kpnws";
+    const publicKey = "WuTL1ADKpsyykslLw";
+
+    console.log("Using EmailJS config:", { serviceId, templateId, publicKey });
+
+    // Gunakan sendForm yang lebih reliable
+    emailjs.sendForm(serviceId, templateId, e.currentTarget, publicKey)
       .then(
-        () => {
-          alert("Message sent successfully!");
+        (result) => {
+          console.log("✅ Email sent successfully!");
+          console.log("Result:", result);
+          console.log("Status:", result.status);
+          console.log("Text:", result.text);
+          
+          alert("🎉 Message sent successfully! I'll get back to you soon.");
           e.currentTarget.reset();
+          setIsSending(false);
         },
         (error) => {
-          alert("Failed to send message.");
-          console.error(error);
+          console.error("❌ Email sending failed!");
+          console.error("Full error:", error);
+          console.error("Error text:", error.text);
+          console.error("Error status:", error.status);
+          console.error("Error message:", error.message);
+          
+          // Cek apakah ini error dari EmailJS atau network
+          let errorMessage = "Failed to send message. ";
+          
+          if (error.text) {
+            console.log("Error text contains:", error.text);
+            
+            // Parsing error message yang lebih spesifik
+            if (error.text.includes("Invalid user ID") || error.text.includes("publicKey")) {
+              errorMessage = "Invalid EmailJS API Key. Please check your public key.";
+            } else if (error.text.includes("Template not found")) {
+              errorMessage = "Template ID is incorrect. Check your template ID.";
+            } else if (error.text.includes("Service not found")) {
+              errorMessage = "Service ID is incorrect. Check your service ID.";
+            } else if (error.text.includes("Forbidden")) {
+              errorMessage = "Access forbidden. Your EmailJS account might need verification.";
+            } else if (error.text.includes("Bad Request")) {
+              errorMessage = "Bad request. Check if your template variables match the form fields.";
+            } else {
+              errorMessage += `Error: ${error.text}`;
+            }
+          } else if (error.status === 0) {
+            errorMessage = "Network error. Please check your internet connection.";
+          } else if (error.status) {
+            errorMessage = `Server error (Status ${error.status}). Please try again.`;
+          }
+          
+          alert(errorMessage);
+          setIsSending(false);
+          
+          // Cek juga di dashboard EmailJS
+          console.log("Please check:");
+          console.log("1. EmailJS Dashboard: https://dashboard.emailjs.com/");
+          console.log("2. Service ID matches: service_f92hnqq");
+          console.log("3. Template ID matches: template_w5kpnws");
+          console.log("4. Template variables match form field names");
         }
       );
   };
 
-  const {scrollY} = useScroll()
   const background = useTransform(
     scrollY,
     [0, 80],
@@ -73,8 +157,17 @@ export default function Home() {
   )
 
   useEffect(() => {
-    window.scrollTo(0, 0)
+    // Inisialisasi EmailJS
+    emailjs.init("WuTL1ADKpsyykslLw");
+    console.log("EmailJS initialized with key: WuTL1ADKpsyykslLw");
+    
+    // Cek apakah EmailJS terinisialisasi
+    console.log("EmailJS initialized successfully");
+    
+    // Scroll ke atas saat pertama kali load
+    window.scrollTo(0, 0);
   }, [])
+  
   return (
     <div className="container-body bg-linear-to-r from-[#000000] to-[#00698f8f] w-full flex justify-center flex-col">
       <motion.nav style={{backdropFilter: blur, backgroundColor: background}} className="flex justify-between px-4 py-2.5 items-center sticky top-0 z-50">
@@ -82,15 +175,65 @@ export default function Home() {
           <h1 className="font-extrabold text-[30px] text-[#00b7fa]">Portofolio</h1>
         </div>
         <div className="menu-nav flex gap-3">
-          <a href="#home" className="text-[17px] hover:text-[#00b7fa] transition duration-300 font-[Fredoka]">Home</a>
-          <a href="#about-me" className="text-[17px] hover:text-[#00b7fa] transition duration-300 font-[Fredoka]">About Me</a>
-          <a href="#projects" className="text-[17px] hover:text-[#00b7fa] transition duration-300 font-[Fredoka]">Projects</a>
-          <a href="#techstack" className="text-[17px] hover:text-[#00b7fa] transition duration-300 font-[Fredoka]">TechStack</a>
-          <a href="#contact" className="text-[17px] hover:text-[#00b7fa] transition duration-300 font-[Fredoka]">Contact</a>
+          <a
+            href="#home"
+            className={`text-[17px] font-[Fredoka] transition duration-300
+              ${activeSection === "home"
+                ? "text-[#00b7fa] border-b-2 border-[#00b7fa]"
+                : "hover:text-[#00b7fa]"
+              }
+            `}
+          >
+            Home
+          </a>
+          <a
+            href="#about-me"
+            className={`text-[17px] font-[Fredoka] transition duration-300
+              ${activeSection === "about-me"
+                ? "text-[#00b7fa] border-b-2 border-[#00b7fa]"
+                : "hover:text-[#00b7fa]"
+              }
+            `}
+          >
+            About Me
+          </a>
+          <a
+            href="#projects"
+            className={`text-[17px] font-[Fredoka] transition duration-300
+              ${activeSection === "projects"
+                ? "text-[#00b7fa] border-b-2 border-[#00b7fa]"
+                : "hover:text-[#00b7fa]"
+              }
+            `}
+          >
+            Projects
+          </a>
+          <a
+            href="#techstack"
+            className={`text-[17px] font-[Fredoka] transition duration-300
+              ${activeSection === "techstack"
+                ? "text-[#00b7fa] border-b-2 border-[#00b7fa]"
+                : "hover:text-[#00b7fa]"
+              }
+            `}
+          >
+            TechStack
+          </a>
+          <a
+            href="#contact"
+            className={`text-[17px] font-[Fredoka] transition duration-300
+              ${activeSection === "contact"
+                ? "text-[#00b7fa] border-b-2 border-[#00b7fa]"
+                : "hover:text-[#00b7fa]"
+              }
+            `}
+          >
+            Contact
+          </a>
         </div>
       </motion.nav>
       <main>
-        <motion.div id="home" className="first-page flex justify-between items-center px-40 min-h-screen" initial={{ opacity: 0, y: 60 }} animate={{ opacity: 2, y: 0 }} transition={{ duration: 1.5, ease: "easeOut" }}>
+        <motion.div id="home" className="first-page flex justify-between items-center px-40 min-h-screen" initial={{ opacity: 0, y: 60 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1.5, ease: "easeOut" }}>
           <div className="text-information flex flex-col gap-2.5">
             <h4 className="text-[25px] font-semibold">Hello!, Im Tiery Umar Samsudin</h4>
             <motion.h1 className="font-extrabold text-[50px] text-[#00b7fa]">Front-end Developer</motion.h1>
@@ -116,7 +259,7 @@ export default function Home() {
           </div>
         </motion.div>
         <motion.div id="about-me" className="about-me-page relative min-h-screen overflow-hidden">
-        <motion.div className="absolute left-0 top-0 h-full w-[40%] bg-cover bg-center" style={{backgroundImage: "url('/Image/Foto Profil Formal.png')"}} initial={{ opacity: 0, x: -70 }} animate={{ opacity: 8, x: 0 }} transition={{ duration: 1.5, ease: "easeOut" }}/>
+        <motion.div className="absolute left-0 top-0 h-full w-[40%] bg-cover bg-center" style={{backgroundImage: "url('/Image/Foto Profil Formal.png')"}} initial={{ opacity: 0, x: -70 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 1.5, ease: "easeOut" }}/>
           <div className="absolute inset-0 bg-linear-to-r from-transparent via-[#000000] to-[#000000]" />
             <div className="relative z-10 min-h-screen flex items-end gap-5 justify-center px-40 text-white flex-col">
               <div className="max-w-xl text-right">
@@ -153,8 +296,8 @@ export default function Home() {
           </div>
           <div className="image-projects">
             <div className="image-card grid grid-cols-2 gap-4 justify-items-center mx-auto max-w-375">
-              <Image className="rounded-lg border-2 hover:border-2 hover:border-[#00b7fa] transition-all duration-300" src={`/Image/Laravel Library Page.png`} alt='' width={800} height={600} />
-              <Image className="rounded-lg border-2 hover:border-2 hover:border-[#00b7fa] transition-all duration-300" src={`/Image/Next JS Library Page.png`} alt='' width={800} height={600} />
+              <Image className="rounded-lg border-2 hover:border-2 hover:border-[#00b7fa] transition-all duration-300" src={`/Image/Laravel Library Page.png`} alt='Laravel Library Project' width={800} height={600} />
+              <Image className="rounded-lg border-2 hover:border-2 hover:border-[#00b7fa] transition-all duration-300" src={`/Image/Next JS Library Page.png`} alt='Next.js Library Project' width={800} height={600} />
             </div>
           </div>
           <div className="project-description flex text-center font-[Fredoka] justify-center">
@@ -179,36 +322,64 @@ export default function Home() {
         <motion.div id="contact" className="bg-[#0b0b0b] min-h-screen px-40 py-20">
           <h1 className="text-[40px] font-extrabold text-[#00b7fa] text-center mb-12">Contact Me</h1>
           <div className="flex justify-center">
-            <form onSubmit={sendEmail} className="bg-[#0f0f0f] p-8 rounded-xl border-2 border-[#00b7fa] flex flex-col gap-5 w-150"id="contact-form">
+            <form onSubmit={sendEmail} className="bg-[#0f0f0f] p-8 rounded-xl border-2 border-[#00b7fa] flex flex-col gap-5 w-150 font-[Fredoka]" id="contact-form">
               <div>
-                <label className="block mb-1 text-sm text-[#00b7fa]">Email</label>
-                <input type="email" name="email" required className="w-full px-4 py-2 rounded bg-black border border-gray-600 focus:border-[#00b7fa] outline-none" placeholder="example@email.com"/>
+                <label className="block mb-1 text-sm text-[#00b7fa]">Email *</label>
+                <input 
+                  type="email" 
+                  name="email" 
+                  id="email"
+                  required 
+                  className="w-full px-4 py-2 rounded bg-black border border-gray-600 focus:border-[#00b7fa] outline-none text-white" 
+                  placeholder="tierry@example.com"
+                />
               </div>
               <div>
-                <label className="block mb-1 text-sm text-[#00b7fa]">Name</label>
-                <input type="text" name="name" required className="w-full px-4 py-2 rounded bg-black border border-gray-600 focus:border-[#00b7fa] outline-none" placeholder="Your full name"/>
+                <label className="block mb-1 text-sm text-[#00b7fa]">Name *</label>
+                <input 
+                  type="text" 
+                  name="name" 
+                  id="name"
+                  required 
+                  className="w-full px-4 py-2 rounded bg-black border border-gray-600 focus:border-[#00b7fa] outline-none text-white" 
+                  placeholder="Tiery Umar Samsudin"
+                />
               </div>
               <div>
                 <label className="block mb-1 text-sm text-[#00b7fa]">Company (Optional)</label>
-                <input type="text" name="company" className="w-full px-4 py-2 rounded bg-black border border-gray-600 focus:border-[#00b7fa] outline-none" placeholder="Company name"/>
+                <input 
+                  type="text" 
+                  name="company" 
+                  id="company"
+                  className="w-full px-4 py-2 rounded bg-black border border-gray-600 focus:border-[#00b7fa] outline-none text-white" 
+                  placeholder="PT Global"
+                />
               </div>
               <div>
-                <label className="block mb-1 text-sm text-[#00b7fa]">Message</label>
-                <textarea name="message" rows={5} required className="w-full px-4 py-2 rounded bg-black border border-gray-600 focus:border-[#00b7fa] outline-none resize-none" placeholder="Write your message here..."/>
+                <label className="block mb-1 text-sm text-[#00b7fa]">Message *</label>
+                <textarea 
+                  name="message" 
+                  id="message"
+                  rows={5} 
+                  required 
+                  className="w-full px-4 py-2 rounded bg-black border border-gray-600 focus:border-[#00b7fa] outline-none resize-none text-white" 
+                  placeholder="Halo, saya tertarik dengan portofolio Anda..."
+                />
               </div>
-              <button type="submit" className="mt-3 py-2 rounded-lg border-2 border-[#00b7fa] text-[#00b7fa] font-bold hover:bg-[#00b7fa] hover:text-black transition-all duration-300">Send Message</button>
+              <button 
+                type="submit" 
+                disabled={isSending}
+                className={`mt-3 py-2 rounded-lg border-2 border-[#00b7fa] text-[#00b7fa] font-bold transition-all duration-300 ${isSending ? "opacity-50 cursor-not-allowed" : "hover:bg-[#00b7fa] hover:text-black"}`}
+              >
+                {isSending ? "Sending..." : "Send Message"}
+              </button>
             </form>
           </div>
         </motion.div>
       </main>
       <footer>
-        <div className="footer-page">
-          <div className="top-footer">
-            <div className="logo">
-              <Image src={`/Image/Logo Web Porto.png`} alt='TierySpace' width={100} height={100} className="rounded-[50%]"/>
-              <h4>TierySpace</h4>
-            </div>
-          </div>
+        <div className="footer-page bg-[#000000] p-3.5 text-center">
+          <p className="text-[15px] font-[Fredoka]">&copy; 2025 TierySpace. All Rights Reserved.</p>
         </div>
       </footer>
     </div>
